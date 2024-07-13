@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Notes = () => {
     const context = useContext(noteContext);
-    const { notes, getNote, editNote } = context;
+    const { notes, getNote, editNote, deleteNote } = context;
     let history = useNavigate();
 
 

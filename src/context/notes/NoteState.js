@@ -36,7 +36,7 @@ const NoteState = (props) =>{
     });
     console.log("Adding a new Note");
     const json = await response.json();
-    // setNotes(notes.concat(json));
+    setNotes(notes.concat(json));
     console.log(json)
   }
 
@@ -52,6 +52,8 @@ const NoteState = (props) =>{
     });
     const json = await response.json();
     console.log(json);
+    const newNotes = notes.filter((note) => note._id !== id);
+    setNotes(newNotes);
   }
 
 
