@@ -1,13 +1,13 @@
 {
-  "homepage":"http://VamsiKrishnaThota03.github.io/INotebook/public/",
-  "name": "my-app",
+  "name": "inotebook",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
-    "concurrently": "^8.2.2",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.24.1",
@@ -19,9 +19,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build",
-    "both": "concurrently \"npm run start\" \"nodemon backend/index.js\""
+    "both": "concurrently \"npm run start\" \"npm run server\"",
+    "server": "npm --prefix backend run dev"
   },
   "eslintConfig": {
     "extends": [
@@ -42,6 +41,7 @@
     ]
   },
   "devDependencies": {
-    "gh-pages": "^6.1.1"
-  }
+    "concurrently": "^8.2.2"
+  },
+  "proxy": "http://localhost:5000"
 }
