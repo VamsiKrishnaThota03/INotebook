@@ -1,0 +1,27 @@
+# Builds and tests the React app and checks that the API loads its modules.
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: CI=true npm test -- --watchAll=false
+      - run: npm run build
+      - run: npm ci
+        working-directory: backend
+      - run: node --check index.js && node -e "require('./routes/notes'); require('./models/User')"
+        working-directory: backend
