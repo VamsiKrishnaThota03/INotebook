@@ -1,70 +1,102 @@
-# Getting Started with Create React App
+# INotebook
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Your notebook on the cloud: a MERN app for creating, editing and deleting personal notes behind JWT login.
 
-## Available Scripts
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5-7952B3?logo=bootstrap&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?logo=mongodb&logoColor=white)
 
-In the project directory, you can run:
+## Overview
 
-### `npm start`
+INotebook is a full-stack note-taking app. A React frontend talks to an Express REST API that stores users and notes in MongoDB. Each user signs up, logs in and can see and manage only their own notes.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Features
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- Sign up and log in. Passwords are hashed with bcryptjs, and the API returns a JWT that is stored in `localStorage`.
+- Request validation with `express-validator`: name of at least 3 characters, a valid email, and a password of at least 5 characters.
+- Add notes with a title, a description and an optional tag (the default tag is `General`).
+- Edit notes in a Bootstrap modal and delete them from the note card.
+- Ownership checks on the server: users can update or delete only their own notes.
+- Alerts for actions, a navbar that switches between login/signup and logout, and an About page.
 
-### `npm test`
+## Tech stack
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+| Layer    | Technology                                                       |
+| -------- | ---------------------------------------------------------------- |
+| Frontend | React 18, React Router 6, Context API, Bootstrap 5               |
+| Backend  | Node.js, Express 4, express-validator, bcryptjs, jsonwebtoken, cors |
+| Database | MongoDB with Mongoose 6                                          |
 
-### `npm run build`
+## Project structure
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```
+INotebook/
+├── backend/
+│   ├── middleware/fetchuser.js   # verifies the auth-token header
+│   ├── models/                   # User, Note
+│   ├── routes/                   # auth.js, notes.js
+│   ├── db.js                     # MongoDB connection
+│   └── index.js                  # Express entry point (port 5000)
+├── public/
+└── src/
+    ├── components/               # Navbar, Home, Notes, Noteitem, AddNote, Login, Signup, About, Alert
+    └── context/notes/            # NoteState (API calls) and noteContext
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Getting started
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Prerequisites
 
-### `npm run eject`
+- Node.js 16 or later and npm
+- MongoDB running locally on `mongodb://localhost:27017`
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Install
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+git clone https://github.com/VamsiKrishnaThota03/INotebook.git
+cd INotebook
+npm install
+cd backend && npm install
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Configuration
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+The current code has its configuration hard-coded. Move these values into environment variables before you deploy anywhere.
 
-## Learn More
+| Setting      | Where it is set                                              | Example placeholder                     |
+| ------------ | ------------------------------------------------------------ | --------------------------------------- |
+| `MONGO_URI`  | `backend/db.js`                                              | `mongodb://localhost:27017/inotebookDb` |
+| `JWT_SECRET` | `backend/routes/auth.js`, `backend/middleware/fetchuser.js`  | `<your-jwt-secret>`                     |
+| API host     | `src/context/notes/NoteState.js`, `Login.js`, `Signup.js`    | `http://localhost:5000`                 |
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Run
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+# frontend and backend together (from the project root)
+npm run both
 
-### Code Splitting
+# or separately
+npx nodemon backend/index.js   # API on http://localhost:5000
+npm start                      # React app on http://localhost:3000
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Other scripts: `npm run build` creates a production build, `npm test` runs the test runner, and `npm run deploy` builds and publishes `build/` with `gh-pages`.
 
-### Analyzing the Bundle Size
+## API
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+The base URL is `http://localhost:5000`. Routes marked "Yes" need an `auth-token` header.
 
-### Making a Progressive Web App
+| Method | Path                         | Auth | Purpose                                 |
+| ------ | ---------------------------- | ---- | --------------------------------------- |
+| POST   | `/api/auth/createuser`       | No   | Register a user and return a JWT        |
+| POST   | `/api/auth/login`            | No   | Log in and return a JWT                 |
+| POST   | `/api/auth/getuser`          | Yes  | Get the logged-in user (without the password) |
+| GET    | `/api/notes/fetchnotes`      | Yes  | List the current user's notes           |
+| POST   | `/api/notes/createnote`      | Yes  | Create a note (`title`, `description`, `tag`) |
+| PUT    | `/api/notes/updatenote/:id`  | Yes  | Update a note you own                   |
+| DELETE | `/api/notes/deletenote/:id`  | Yes  | Delete a note you own                   |
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## Notes
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+The repository includes a GitHub Pages workflow (`.github/workflows/static.yml`), but it uploads the raw repository rather than a React build, and the app needs the backend running. A hosted demo is not available yet.
