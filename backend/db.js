@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
+const { mongoURI } = require('./config');
 
-const mongoURI = "mongodb://localhost:27017/inotebookDb";
+mongoose.set('strictQuery', true);
 
-const connectToMongo= async()=>{
-    await mongoose.connect(mongoURI)
-    console.log("Mongoose is connected");
-    
-}
+const connectToMongo = async () => {
+  await mongoose.connect(mongoURI);
+  console.log('Mongoose is connected');
+};
 
-module.exports = connectToMongo
+module.exports = connectToMongo;
