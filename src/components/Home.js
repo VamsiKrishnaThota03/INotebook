@@ -1,15 +1,3 @@
-// import Notes from './Notes';
-import { useContext } from "react"
-import Notes from "./Notes";
-import AddNote from "./AddNote";
+import Notes from './Notes';
 
-export const Home = () => {
-
-    
-
-    return (
-        <div>
-            <Notes />
-        </div>
-    )
-}
+export const Home = ({ showAlert }) => <Notes showAlert={showAlert} />;

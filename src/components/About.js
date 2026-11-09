@@ -1,34 +1,37 @@
-// About.js
-
 import React from 'react';
 
-const About = () => {
-  return (
-    <div className="container mt-5">
-      <h1 className="mb-4">About INotebook</h1>
-      <p className="lead">
-        Welcome to INotebook, your personal cloud-based note management application.
-        INotebook is designed to help you keep all your notes organized and easily accessible from anywhere.
-      </p>
-      <h2 className="mt-5">Features</h2>
-      <ul className="list-unstyled">
-        <li className="my-2"><i className="bi bi-check-circle-fill text-success"></i> Create, edit, and delete notes</li>
-        <li className="my-2"><i className="bi bi-check-circle-fill text-success"></i> Organize notes by categories</li>
-        <li className="my-2"><i className="bi bi-check-circle-fill text-success"></i> Access your notes from any device</li>
-        <li className="my-2"><i className="bi bi-check-circle-fill text-success"></i> Secure and private note storage</li>
-      </ul>
-      <h2 className="mt-5">Our Mission</h2>
-      <p>
-        Our mission is to provide a simple yet powerful tool for managing your notes. 
-        Whether you are a student, professional, or just someone who likes to stay organized, 
-        INotebook is here to help you keep track of your thoughts and ideas.
-      </p>
-      <h2 className="mt-5">Contact Us</h2>
-      <p>
-        If you have any questions or feedback, feel free to reach out to us at <a href="mailto:vamsikrishnathota483@gmail.com">vamsikrishnathota483@gmail.com</a>.
-      </p>
-    </div>
-  );
-};
+const FEATURES = [
+  'Create, edit and delete notes',
+  'Organise notes with tags and search them instantly',
+  'Access your notes from any device after logging in',
+  'Private: each account only sees its own notes',
+];
+
+const About = () => (
+  <div className="nb-card p-4 p-md-5 mx-auto" style={{ maxWidth: 820 }}>
+    <h1 className="fw-bold mb-3">About iNotebook</h1>
+    <p className="lead text-body-secondary">
+      iNotebook is a personal, cloud-based note app. Keep your notes organised and reachable from anywhere.
+    </p>
+    <h2 className="h4 fw-bold mt-4">Features</h2>
+    <ul className="list-unstyled">
+      {FEATURES.map((f) => (
+        <li className="my-2" key={f}>
+          <i className="bi bi-check-circle-fill text-success me-2" aria-hidden="true"></i>
+          {f}
+        </li>
+      ))}
+    </ul>
+    <h2 className="h4 fw-bold mt-4">Our mission</h2>
+    <p>
+      A simple yet capable tool for managing your notes. Whether you are a student, a professional or just like to stay
+      organised, iNotebook helps you keep track of your thoughts and ideas.
+    </p>
+    <h2 className="h4 fw-bold mt-4">Contact</h2>
+    <p className="mb-0">
+      Questions or feedback? Write to <a href="mailto:vamsikrishnathota483@gmail.com">vamsikrishnathota483@gmail.com</a>.
+    </p>
+  </div>
+);
 
 export default About;

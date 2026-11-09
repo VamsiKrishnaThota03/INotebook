@@ -1,99 +1,134 @@
-import React, { useContext, useEffect, useRef, useState } from 'react'
-import noteContext from "../context/notes/noteContext"
-import Noteitem from './Noteitem';
-import AddNote from './AddNote';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import noteContext from '../context/notes/noteContext';
+import Noteitem from './Noteitem';
+import Modal from 'bootstrap/js/dist/modal';
+import AddNote from './AddNote';
 
 const Notes = () => {
-    const context = useContext(noteContext);
-    const { notes, getNote, editNote, deleteNote } = context;
-    let history = useNavigate();
+  const { notes, status, getNote, editNote } = useContext(noteContext);
+  const navigate = useNavigate();
+  const modalRef = useRef(null);
+  const [note, setNote] = useState({ eid: '', etitle: '', edescription: '', etag: '' });
+  const [query, setQuery] = useState('');
 
+  useEffect(() => {
+    if (localStorage.getItem('token')) getNote();
+    else navigate('/login');
+  }, [getNote, navigate]);
 
-    useEffect(() => {
-        if(localStorage.getItem('token'))
-        {
-            getNote();
-        }
-        else
-        {
-            history('/login');
-        }
-    }, [])
+  // Token expired or invalid: NoteState removes it; send the user to log in.
+  useEffect(() => {
+    if (status === 'error' && !localStorage.getItem('token')) navigate('/login');
+  }, [status, navigate]);
 
+  const modal = () => Modal.getOrCreateInstance(modalRef.current);
 
-    const ref = useRef(null)
-    const refClose = useRef(null)
-    const [note, setNote] = useState({eid:"", etitle: "", edescription: "", etag: "" });
+  const updateNote = (currentNote) => {
+    setNote({ eid: currentNote._id, etitle: currentNote.title, edescription: currentNote.description, etag: currentNote.tag });
+    modal().show();
+  };
 
+  const onChange = (e) => setNote({ ...note, [e.target.name]: e.target.value });
 
-    const updateNote=(currentNote)=>{
-        ref.current.click();
-        setNote({eid:currentNote._id, etitle:currentNote.title,edescription:currentNote.description,etag:currentNote.tag});
-    }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const ok = await editNote(note.eid, note.etitle.trim(), note.edescription.trim(), note.etag.trim());
+    if (ok) modal().hide();
+  };
 
-    const onChange = (e) => {
-        setNote({ ...note, [e.target.name]: e.target.value })
-    }
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return notes;
+    return notes.filter((n) => [n.title, n.description, n.tag].some((v) => (v || '').toLowerCase().includes(q)));
+  }, [notes, query]);
 
-    const handleClick = (e) => {
-        editNote(note.eid,note.etitle,note.edescription,note.etag);
-        refClose.current.click();
-        e.preventDefault();
-    }
+  const invalid = note.etitle.trim().length < 3 || note.edescription.trim().length < 5;
 
-    return (
+  return (
+    <div className="row g-4">
+      <div className="col-lg-4">
+        <AddNote />
+      </div>
 
-        <>
-            <AddNote />
-
-            <button type="button" ref={ref}  className="btn btn-primary d-none" data-bs-toggle="modal" data-bs-target="#exampleModal">
-                Launch demo modal
-            </button>
-
-            <div className="modal fade" id="exampleModal" tabIndex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-                <div className="modal-dialog">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <h1 className="modal-title fs-5" id="exampleModalLabel">Edit Note</h1>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="mb-3">
-                                <label htmlFor="title" className="form-label">Title</label>
-                                <input type="text" className="form-control" name="etitle" value={note.etitle} onChange={onChange} id="etitle" aria-describedby="emailHelp" />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="description" className="form-label">Description</label>
-                                <input type="text" className="form-control" name='edescription' value={note.edescription} onChange={onChange} id="edescription" aria-describedby="emailHelp" />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="tag" className="form-label">Tag</label>
-                                <input type="text" className="form-control" id="etag" value={note.etag} onChange={onChange} name='etag' />
-                            </div>
-
-                        </div>
-                        <div className="modal-footer">
-                            <button type="button" ref={refClose} className="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="button" className="btn btn-primary" onClick={handleClick}>Update changes</button>
-                        </div>
-                    </div>
-                </div>
+      <div className="col-lg-8">
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+          <div>
+            <h1 className="h3 fw-bold mb-0">Your notes</h1>
+            {status === 'ready' && <span className="text-body-secondary small">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span>}
+          </div>
+          {notes.length > 0 && (
+            <div className="input-group" style={{ maxWidth: 280 }}>
+              <span className="input-group-text bg-white"><i className="bi bi-search" aria-hidden="true"></i></span>
+              <label htmlFor="search" className="visually-hidden">Search notes</label>
+              <input id="search" type="search" className="form-control" placeholder="Search notes" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
+          )}
+        </div>
 
-            <div className="row my-3">
+        {status === 'loading' && (
+          <div className="text-center py-5 text-body-secondary" role="status">
+            <div className="spinner-border text-primary mb-2" aria-hidden="true"></div>
+            <div>Loading your notes…</div>
+          </div>
+        )}
 
-                <h2>Your Notes</h2>
-                <div className='container'>
-                    {notes.length===0 && 'No Notes to Display'}
-                </div>
-                {notes.map((note) => {
-                    return <Noteitem key={note._id} note={note} updateNote={updateNote} />;
-                })}
+        {status === 'error' && (
+          <div className="alert alert-danger d-flex justify-content-between align-items-center">
+            <span>Couldn&apos;t load your notes.</span>
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={getNote}>Try again</button>
+          </div>
+        )}
+
+        {status === 'ready' && notes.length === 0 && (
+          <div className="nb-empty text-center py-5 px-3">
+            <i className="bi bi-journal-text display-6 text-primary" aria-hidden="true"></i>
+            <p className="fw-semibold mt-2 mb-1">No notes yet</p>
+            <p className="text-body-secondary mb-0">Use the form to write your first note.</p>
+          </div>
+        )}
+
+        {status === 'ready' && notes.length > 0 && visible.length === 0 && (
+          <p className="text-body-secondary">No notes match “{query}”.</p>
+        )}
+
+        <div className="row g-3">
+          {visible.map((n) => (
+            <Noteitem key={n._id} note={n} updateNote={updateNote} />
+          ))}
+        </div>
+      </div>
+
+      <div className="modal fade" id="editNoteModal" tabIndex="-1" aria-labelledby="editNoteLabel" aria-hidden="true" ref={modalRef}>
+        <div className="modal-dialog modal-dialog-centered">
+          <form className="modal-content" onSubmit={handleSubmit}>
+            <div className="modal-header">
+              <h2 className="modal-title fs-5" id="editNoteLabel">Edit note</h2>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-        </>
+            <div className="modal-body">
+              <div className="mb-3">
+                <label htmlFor="etitle" className="form-label fw-semibold">Title</label>
+                <input type="text" className="form-control" name="etitle" id="etitle" value={note.etitle} onChange={onChange} required minLength={3} maxLength={200} />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="edescription" className="form-label fw-semibold">Description</label>
+                <textarea className="form-control" name="edescription" id="edescription" rows={5} value={note.edescription} onChange={onChange} required minLength={5} />
+              </div>
+              <div className="mb-1">
+                <label htmlFor="etag" className="form-label fw-semibold">Tag</label>
+                <input type="text" className="form-control" name="etag" id="etag" value={note.etag} onChange={onChange} maxLength={40} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={invalid}>Save changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-    )
-}
-
-export default Notes
+export default Notes;
