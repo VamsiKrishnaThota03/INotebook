@@ -38,8 +38,11 @@ suite('note ownership (real MongoDB)', () => {
       method: 'POST',
       body: { name: `${label} tester`, email, password: 'correct-horse' },
     });
-    assert.strictEqual(res.status, 200, `register failed: ${await res.text()}`);
-    const json = await res.json();
+    // Read the body exactly once: a template literal in the assert message
+    // would consume it eagerly and leave res.json() with nothing to parse.
+    const text = await res.text();
+    assert.strictEqual(res.status, 200, `register failed: ${text}`);
+    const json = JSON.parse(text);
     assert.ok(json.authtoken, 'expected an auth token');
     return { token: json.authtoken, email };
   }
@@ -116,8 +119,11 @@ suite('note ownership (real MongoDB)', () => {
       headers: auth,
       body: { title: 'My note', description: 'Something private', tag: 'personal' },
     });
-    assert.strictEqual(created.status, 200, await created.text());
-    const note = await created.json();
+    // Read once; see the note in register() about template literals eating
+    // the body before json() can parse it.
+    const createdText = await created.text();
+    assert.strictEqual(created.status, 200, createdText);
+    const note = JSON.parse(createdText);
     assert.ok(note._id);
 
     const list = await call('/api/notes/fetchnotes', { headers: auth });
