@@ -7,8 +7,8 @@ Your notebook on the cloud: a MERN app for creating, editing and deleting person
 ![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?logo=mongodb&logoColor=white)
 
-[![CI](https://github.com/VamsiKrishnaThota03/INotebook/actions/workflows/ci.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/INotebook/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/VamsiKrishnaThota03/INotebook/actions/workflows/codeql.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/INotebook/actions/workflows/codeql.yml)
+[![CI](https://github.com/VamsiKrishnaThota03/cloud-notes/actions/workflows/ci.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/cloud-notes/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/VamsiKrishnaThota03/cloud-notes/actions/workflows/codeql.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/cloud-notes/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ![Notes](docs/screenshots/notes.png)
@@ -68,7 +68,7 @@ INotebook/
 ### Install
 
 ```bash
-git clone https://github.com/VamsiKrishnaThota03/INotebook.git
+git clone https://github.com/VamsiKrishnaThota03/cloud-notes.git
 cd INotebook
 npm install
 npm --prefix backend install
