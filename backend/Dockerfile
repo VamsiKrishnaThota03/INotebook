@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 # No build step, so dev dependencies never need to reach the image.
 RUN npm install --omit=dev --no-audit --no-fund
 
-FROM node:20-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
