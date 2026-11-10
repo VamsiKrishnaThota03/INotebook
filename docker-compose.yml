@@ -1,0 +1,48 @@
+# Local development stack: MongoDB + the API.
+#
+# Both published ports bind to 127.0.0.1, so nothing is reachable from the
+# local network. The API reaches Mongo over the compose network on the `mongo`
+# hostname; the database publish is only a convenience for mongosh and Compass.
+#
+#   printf 'MONGO_PASSWORD=%s\nJWT_SECRET=%s\n' \
+#     "$(openssl rand -hex 16)" "$(openssl rand -hex 32)" > .env
+#   docker compose up --build
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-inotebook}
+      # No default: compose refuses to start until this is set in .env.
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
+      MONGO_INITDB_DATABASE: inotebookDb
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 5000
+      MONGO_URI: mongodb://${MONGO_USERNAME:-inotebook}:${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}@mongo:27017/inotebookDb?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (openssl rand -hex 32)}
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "127.0.0.1:5000:5000"
+
+volumes:
+  mongodata:

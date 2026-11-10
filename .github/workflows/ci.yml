@@ -1,27 +1,212 @@
-# Builds and tests the React app and checks that the API loads its modules.
 name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ['main']
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  backend:
+    name: backend (node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    defaults:
+      run:
+        working-directory: backend
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
           cache: npm
+          cache-dependency-path: backend/package-lock.json
+
       - run: npm ci
-      - run: CI=true npm test -- --watchAll=false
-      - run: npm run build
+
+      # This job used to run only `node --check index.js` plus a couple of
+      # require() calls, which proves the files parse and nothing else.
+      - name: Test
+        run: npm test
+
+  ownership:
+    name: note ownership against real MongoDB
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
       - run: npm ci
+
+      - name: Test (includes the cross-user access suite)
+        run: npm test
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/inotebook_test
+
+      - name: Coverage
+        run: npm run test:coverage
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/inotebook_test
+
+  bind-address:
+    # config.js defaults HOST to 127.0.0.1. This job reads the real listening
+    # socket, because a bind is the kind of thing that regresses quietly.
+    name: binds loopback by default
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
         working-directory: backend
-      - run: node --check index.js && node -e "require('./routes/notes'); require('./models/User')"
-        working-directory: backend
+
+    env:
+      MONGO_URI: mongodb://127.0.0.1:27017/inotebook_bind
+      JWT_SECRET: ci-only-secret-never-used-in-a-deployment
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+
+      - name: Default bind is 127.0.0.1, readiness turns green, SIGTERM is clean
+        env:
+          PORT: '5000'
+        run: |
+          set -euo pipefail
+          node index.js > server.log 2>&1 & SERVER_PID=$!
+
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5000/api/health > /dev/null && break
+            sleep 1
+          done
+
+          echo "--- listening sockets on 5000 ---"
+          ss -ltn 2>/dev/null | grep ':5000' || true
+
+          if ss -ltn 2>/dev/null | grep -qE '(0\.0\.0\.0|\*):5000'; then
+            echo "::error::server is listening on all interfaces by default"
+            exit 1
+          fi
+          ss -ltn 2>/dev/null | grep -q '127.0.0.1:5000' \
+            || { echo "::error::no loopback listener found"; ss -ltn; exit 1; }
+
+          curl -fsS http://127.0.0.1:5000/api/health/ready \
+            | tee /dev/stderr | grep -q '"database":"connected"'
+
+          kill -TERM $SERVER_PID
+          for i in $(seq 1 15); do
+            if ! kill -0 $SERVER_PID 2>/dev/null; then echo "exited cleanly"; exit 0; fi
+            sleep 1
+          done
+          echo "::error::server did not shut down on SIGTERM"
+          exit 1
+
+      - name: HOST=0.0.0.0 is still honoured for container hosting
+        env:
+          PORT: '5002'
+          HOST: 0.0.0.0
+        run: |
+          set -euo pipefail
+          node index.js > server2.log 2>&1 & SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5002/api/health > /dev/null && break
+            sleep 1
+          done
+          ss -ltn 2>/dev/null | grep -qE '(0\.0\.0\.0|\*):5002' \
+            || { echo "::error::HOST override was ignored"; ss -ltn; exit 1; }
+          echo "HOST override works"
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Test
+        run: npm test -- --watchAll=false
+        env:
+          CI: 'true'
+
+      - name: Build
+        run: npm run build
+        env:
+          CI: 'true'
+          DISABLE_ESLINT_PLUGIN: 'true'
+
+  docker:
+    name: backend image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          load: true
+          tags: inotebook-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image refuses to start without JWT_SECRET
+        run: |
+          set +e
+          output=$(docker run --rm inotebook-backend:ci 2>&1)
+          status=$?
+          set -e
+          echo "$output"
+          test "$status" -ne 0 || { echo "::error::started without JWT_SECRET"; exit 1; }
+          echo "$output" | grep -q "JWT_SECRET" || { echo "::error::expected a JWT_SECRET error"; exit 1; }

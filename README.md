@@ -7,6 +7,10 @@ Your notebook on the cloud: a MERN app for creating, editing and deleting person
 ![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?logo=mongodb&logoColor=white)
 
+[![CI](https://github.com/VamsiKrishnaThota03/INotebook/actions/workflows/ci.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/INotebook/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/VamsiKrishnaThota03/INotebook/actions/workflows/codeql.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/INotebook/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ![Notes](docs/screenshots/notes.png)
 
 | Editing a note | Mobile |
@@ -97,6 +101,8 @@ Backend (`backend/.env`, see `backend/.env.example`):
 | `PORT`        | no       | API port (default `5000`)                                            |
 | `HOST`        | no       | Bind address (default `127.0.0.1`; set `0.0.0.0` on Render or similar hosts) |
 | `CORS_ORIGIN` | no       | Comma-separated allowed browser origins (default `http://localhost:3000`) |
+| `RATE_LIMIT_MAX` | no | Requests per IP per 15 minutes across all routes (default `600`) |
+| `AUTH_RATE_LIMIT_MAX` | no | Login/register attempts per IP+email per 15 minutes (default `20`) |
 
 Frontend (`.env` in the project root, see `.env.example`):
 
@@ -117,10 +123,69 @@ Routes marked "Yes" need an `auth-token` header.
 | POST   | `/api/notes/createnote`      | Yes  | Create a note (`title`, `description`, `tag`) |
 | PUT    | `/api/notes/updatenote/:id`  | Yes  | Update a note you own                   |
 | DELETE | `/api/notes/deletenote/:id`  | Yes  | Delete a note you own                   |
-| GET    | `/api/health`                | No   | Health check                            |
+| GET    | `/api/health`                | No   | Liveness — 200 whenever the process is up, never touches Mongo |
+| GET    | `/api/health/ready`          | No   | Readiness — reports Mongoose's connection state, 503 until usable |
+
+## Hardening and testing
+
+The backend is split into `app.js` (the Express application) and `index.js`
+(connect, bind, shut down), so the app can be driven by tests on an ephemeral
+loopback port rather than the real one.
+
+- **helmet** with a deny-all CSP (this is a JSON API; nothing is ever loaded
+  from it as a subresource), `nosniff` and `no-referrer`.
+- **Rate limiting**: a global ceiling, plus a tighter limiter on `/api/auth`
+  keyed on IP **plus the submitted email**, so one attacker behind a shared
+  address cannot lock out everyone else. Successes count as well as failures,
+  so a valid login cannot refill the budget. `trust proxy` is set to exactly
+  one hop, so `X-Forwarded-For` cannot be spoofed to bypass it.
+- **Split health probes.** Liveness never touches Mongo, so a database blip
+  cannot cause a restart loop; readiness reports the connection state.
+- **Graceful shutdown** on SIGTERM/SIGINT that drains requests then closes the
+  Mongo connection.
+
+### Tests
+
+CI previously ran `node --check index.js` and two `require()` calls — enough to
+prove the files parse, and nothing more. There are now two suites:
+
+| Suite | Needs a database? | Covers |
+| --- | --- | --- |
+| `backend/test/api.test.js` | No | Token-missing, wrong-key and `alg=none` rejection on every note route; registration and login validation; the auth limiter firing and keying per email; security headers; the liveness/readiness split; JSON 404 and malformed-JSON 400 |
+| `backend/test/ownership.test.js` | Yes, skips without `TEST_MONGO_URI` | The assertion that actually matters for a notes app: user B cannot list, edit or delete user A's note **even knowing its id**, and A's note is verified untouched afterwards. Plus duplicate-email rejection and that the password hash never appears in a response |
+
+```bash
+cd backend
+npm test                                     # 13 tests, no database needed
+TEST_MONGO_URI=mongodb://127.0.0.1:27017/inotebook_test npm test   # adds the ownership suite
+```
+
+### Continuous integration
+
+| Job | What it proves |
+| --- | --- |
+| `backend` (Node 20, 22) | The no-database suite |
+| `ownership` | The full suite against a MongoDB 7 service container, with coverage |
+| `bind-address` | Reads `ss -ltn` on the running server: no `0.0.0.0:5000` listener by default, a loopback one present, readiness green, clean `SIGTERM`, and `HOST=0.0.0.0` still honoured |
+| `frontend` | Jest + Testing Library tests and a production build |
+| `docker` | The image builds and refuses to start without `JWT_SECRET` |
+
+### Docker
+
+```bash
+printf 'MONGO_PASSWORD=%s\nJWT_SECRET=%s\n' \
+  "$(openssl rand -hex 16)" "$(openssl rand -hex 32)" > .env
+
+docker compose up --build
+```
+
+MongoDB and the API both publish to `127.0.0.1` only, so neither is reachable
+from your network, and Compose fails fast with a named error if either variable
+is missing.
 
 ## Known limitations
 
-- There is no hosted demo. The old GitHub Pages workflow (which published the raw repository, not a working app) was replaced with a CI workflow; the app needs the API and MongoDB running.
+- There is no hosted demo; the app needs the API and MongoDB running. `docker compose up` is the quickest way to see it work.
 - The JWT is stored in `localStorage`, and there is no password reset.
 - `npm audit` still reports issues in Create React App's build tooling (`react-scripts` 5) that need a breaking upgrade.
+- Rate limit counters live in process memory, so the ceilings are per instance. Scaling past one would need a shared store (Redis).
